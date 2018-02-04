@@ -2,3 +2,4 @@ data/train/*.jpg
 data/train/*.jpeg
 data/test/*.jpg
 data/test/*.jpeg
+data/test/*.png
