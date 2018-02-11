@@ -31,10 +31,14 @@ def _run():
     model, input_shape = models.create_network(num_classes)
     gen = models.create_generator(input_shape, num_classes)
 
-    pred_test = model.predict_generator(
+    pred_test_proba = model.predict_generator(
         gen.flow(X_test, batch_size=BATCH_SIZE, data_augmentation=False, shuffle=False),
         steps=gen.steps_per_epoch(len(X_test), BATCH_SIZE),
         verbose=1)
+
+    print(pred_test_proba)
+
+    pred_test = pred_test_proba.argmax(axis=-1)
 
     data.save_data(MODELS_DIR / 'submit.tsv', pred_test)
 

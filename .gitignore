@@ -3,3 +3,4 @@ data/train/*.jpeg
 data/test/*.jpg
 data/test/*.jpeg
 data/test/*.png
+models/

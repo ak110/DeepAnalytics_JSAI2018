@@ -4,13 +4,15 @@ import pathlib
 import better_exceptions
 import horovod.keras as hvd
 import numpy as np
+import sklearn.model_selection
 
 import data
 import pytoolkit as tk
 
 BATCH_SIZE = 32
-MAX_EPOCH = 10
+MAX_EPOCH = 100
 MODELS_DIR = pathlib.Path('models')
+VALIDATE = True
 
 
 def _main():
@@ -30,6 +32,11 @@ def _run():
     import models
 
     (X_train, y_train), _ = data.load_data()
+    if VALIDATE:
+        X_train, X_val, y_train, y_val = sklearn.model_selection.train_test_split(
+            X_train, y_train, test_size=0.1, random_state=123)
+    else:
+        X_val, y_val = None, None
     num_classes = len(np.unique(y_train))
 
     model, input_shape = models.create_network(num_classes)
@@ -57,11 +64,11 @@ def _run():
     gen = models.create_generator(input_shape, num_classes)
     model.fit_generator(
         gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),
-        steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], BATCH_SIZE) // hvd.size(),
+        steps_per_epoch=gen.steps_per_epoch(len(X_train), BATCH_SIZE) // hvd.size(),
         epochs=MAX_EPOCH,
         verbose=1 if hvd.rank() == 0 else 0,
-        # validation_data=gen.flow(X_test, y_test, batch_size=BATCH_SIZE, shuffle=True),
-        # validation_steps=gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE) // hvd.size(),  # * 3は省略
+        validation_data=gen.flow(X_val, y_val, batch_size=BATCH_SIZE, shuffle=True) if VALIDATE else None,
+        validation_steps=gen.steps_per_epoch(len(X_val), BATCH_SIZE) // hvd.size() if VALIDATE else None,  # * 3は省略
         callbacks=callbacks)
 
     if hvd.rank() == 0:

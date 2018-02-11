@@ -40,6 +40,7 @@ def create_network(num_classes: int):
     x = _block(x, 256, 4, name='stage3_block')
     x = _tran(x, 512, name='stage3_tran')  # 8
     x = _block(x, 512, 4, name='stage4_block')
+    x = keras.layers.Dropout(0.5)(x)
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = builder.dense(num_classes, activation='softmax', kernel_initializer='zeros', name='predictions')(x)
 
@@ -53,7 +54,6 @@ def create_generator(input_shape, num_classes):
         input_shape[:2], label_encoder=tk.ml.to_categorical(num_classes),
         rotate_degrees=180)
     gen.add(0.5, tk.image.FlipLR())
-    gen.add(0.5, tk.image.FlipTB())
     gen.add(0.5, tk.image.RandomErasing())
     gen.add(0.25, tk.image.RandomBlur())
     gen.add(0.25, tk.image.RandomBlur(partial=True))
