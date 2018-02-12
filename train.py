@@ -19,7 +19,8 @@ def _main():
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     logger = tk.log.get()
     logger.addHandler(tk.log.stream_handler())
-    logger.addHandler(tk.log.file_handler(MODELS_DIR / 'train.log'))
+    if hvd.rank() == 0:
+        logger.addHandler(tk.log.file_handler(MODELS_DIR / 'train.log'))
     with tk.dl.session(gpu_options={'visible_device_list': str(hvd.local_rank())}):
         _run()
 
@@ -31,7 +32,7 @@ def _run():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', help='epoch数。', default=300, type=int)
-    parser.add_argument('--batch-size', help='バッチサイズ。', default=32, type=int)
+    parser.add_argument('--batch-size', help='バッチサイズ。', default=16, type=int)
     parser.add_argument('--no-validate', help='バリデーションしない。', action='store_true', default=False)
     parser.add_argument('--warm', help='models/model.h5を読み込む', action='store_true', default=False)
     args = parser.parse_args()

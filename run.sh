@@ -1,4 +1,5 @@
 #!/bin/bash
 set -eux
-mpirun -np 2 -H localhost:2 python train.py --warm
+GPUS=$(python -c 'import pytoolkit as tk ; print(tk.get_gpu_count())')
+mpirun -np $GPUS -H localhost:$GPUS python train.py $*
 python predict.py

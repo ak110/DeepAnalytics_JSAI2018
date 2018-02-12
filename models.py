@@ -10,41 +10,13 @@ def create_network(num_classes: int):
 
     input_shape = (256, 256, 3)
 
-    builder = tk.dl.Builder()
-    builder.set_default_l2()
-    builder.conv_defaults['kernel_initializer'] = 'he_uniform'
-
-    def _block(x, filters, res_count, name):
-        for res in range(res_count):
-            sc = x
-            x = builder.conv2d(filters, (3, 3), name='{}_r{}c1'.format(name, res))(x)
-            x = keras.layers.Dropout(0.25)(x)
-            x = builder.conv2d(filters, (3, 3), use_act=False, name='{}_r{}c2'.format(name, res))(x)
-            x = keras.layers.add([sc, x])
-        x = builder.bn()(x)
-        x = builder.act()(x)
-        return x
-
-    def _tran(x, filters, name):
-        x = builder.conv2d(filters, (1, 1), name='{}_conv'.format(name))(x)
-        x = keras.layers.MaxPooling2D()(x)
-        return x
-
-    x = inp = keras.layers.Input(input_shape)
-    x = builder.conv2d(64, (7, 7), strides=(2, 2), name='start')(x)  # 128
-    x = keras.layers.MaxPooling2D()(x)  # 64
-    x = _block(x, 64, 4, name='stage1_block')
-    x = _tran(x, 128, name='stage1_tran')  # 32
-    x = _block(x, 128, 4, name='stage2_block')
-    x = _tran(x, 256, name='stage2_tran')  # 16
-    x = _block(x, 256, 4, name='stage3_block')
-    x = _tran(x, 512, name='stage3_tran')  # 8
-    x = _block(x, 512, 4, name='stage4_block')
-    x = keras.layers.Dropout(0.5)(x)
+    base_model = keras.applications.DenseNet201(include_top=False, weights=None, input_shape=input_shape)
+    x = base_model.outputs[0]
+    x = keras.layers.Dropout(0.25)(x)
     x = keras.layers.GlobalAveragePooling2D()(x)
-    x = builder.dense(num_classes, activation='softmax', kernel_initializer='zeros', name='predictions')(x)
+    x = keras.layers.Dense(num_classes, activation='softmax', kernel_initializer='zeros', name='predictions')(x)
 
-    model = keras.models.Model(inputs=inp, outputs=x)
+    model = keras.models.Model(inputs=base_model.inputs, outputs=x)
     return model, input_shape
 
 
