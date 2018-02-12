@@ -1,4 +1,5 @@
 """学習。"""
+import argparse
 import pathlib
 
 import better_exceptions
@@ -9,10 +10,7 @@ import sklearn.model_selection
 import data
 import pytoolkit as tk
 
-BATCH_SIZE = 32
-MAX_EPOCH = 100
 MODELS_DIR = pathlib.Path('models')
-VALIDATE = True
 
 
 def _main():
@@ -31,8 +29,16 @@ def _run():
     import keras
     import models
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--epochs', help='epoch数。', default=300, type=int)
+    parser.add_argument('--batch-size', help='バッチサイズ。', default=32, type=int)
+    parser.add_argument('--no-validate', help='バリデーションしない。', action='store_true', default=False)
+    parser.add_argument('--warm', help='models/model.h5を読み込む', action='store_true', default=False)
+    args = parser.parse_args()
+    validate = not args.no_validate
+
     (X_train, y_train), _ = data.load_data()
-    if VALIDATE:
+    if validate:
         X_train, X_val, y_train, y_val = sklearn.model_selection.train_test_split(
             X_train, y_train, test_size=0.1, random_state=123)
     else:
@@ -44,7 +50,7 @@ def _run():
     # 学習率：
     # ・lr 0.5、batch size 256くらいが多いのでその辺を基準に
     # ・バッチサイズに比例させるのが良いとのうわさ
-    lr = 0.5 * BATCH_SIZE / 256 * hvd.size()
+    lr = 0.5 * args.batch_size / 256 * hvd.size()
     opt = keras.optimizers.SGD(lr=lr, momentum=0.9, nesterov=True)
     opt = hvd.DistributedOptimizer(opt)
     model.compile(opt, 'categorical_crossentropy', ['acc'])
@@ -53,8 +59,12 @@ def _run():
         model.summary(print_fn=tk.log.get(__name__).info)
         tk.log.get(__name__).info('network depth: %d', tk.dl.count_network_depth(model))
 
+    if args.warm:
+        model.load_weights('models/model.h5')
+        tk.log.get(__name__).info('models/model.h5 loaded')
+
     callbacks = []
-    callbacks.append(tk.dl.learning_rate_callback(lr=lr, epochs=MAX_EPOCH))
+    callbacks.append(tk.dl.learning_rate_callback(lr=lr, epochs=args.epochs))
     callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
     callbacks.append(hvd.callbacks.MetricAverageCallback())
     callbacks.append(hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, verbose=1))
@@ -63,12 +73,12 @@ def _run():
 
     gen = models.create_generator(input_shape, num_classes)
     model.fit_generator(
-        gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),
-        steps_per_epoch=gen.steps_per_epoch(len(X_train), BATCH_SIZE) // hvd.size(),
-        epochs=MAX_EPOCH,
+        gen.flow(X_train, y_train, batch_size=args.batch_size, data_augmentation=True, shuffle=True),
+        steps_per_epoch=gen.steps_per_epoch(len(X_train), args.batch_size) // hvd.size(),
+        epochs=args.epochs,
         verbose=1 if hvd.rank() == 0 else 0,
-        validation_data=gen.flow(X_val, y_val, batch_size=BATCH_SIZE, shuffle=True) if VALIDATE else None,
-        validation_steps=gen.steps_per_epoch(len(X_val), BATCH_SIZE) // hvd.size() if VALIDATE else None,  # * 3は省略
+        validation_data=gen.flow(X_val, y_val, batch_size=args.batch_size, shuffle=True) if validate else None,
+        validation_steps=gen.steps_per_epoch(len(X_val), args.batch_size) // hvd.size() if validate else None,  # * 3は省略
         callbacks=callbacks)
 
     if hvd.rank() == 0:

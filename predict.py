@@ -29,6 +29,7 @@ def _run():
     num_classes = len(np.unique(y_train))
 
     model, input_shape = models.create_network(num_classes)
+    model.load_weights(MODELS_DIR / 'model.h5')
     gen = models.create_generator(input_shape, num_classes)
 
     pred_test_proba = model.predict_generator(
