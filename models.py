@@ -7,35 +7,43 @@ import pytoolkit as tk
 def create_network(num_classes: int):
     """ネットワークを作って返す。"""
     import keras
-
-    input_shape = (256, 256, 3)
-
-    base_model = keras.applications.DenseNet201(include_top=False, weights=None, input_shape=input_shape)
+    base_model = keras.applications.DenseNet201(include_top=False, weights=None, input_shape=(None, None, 3))
     x = base_model.outputs[0]
-    x = keras.layers.Dropout(0.25)(x)
+    x = keras.layers.Dropout(0.5)(x)
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(num_classes, activation='softmax', kernel_initializer='zeros', name='predictions')(x)
-
     model = keras.models.Model(inputs=base_model.inputs, outputs=x)
-    return model, input_shape
+    return model
 
 
-def create_generator(input_shape, num_classes):
+def load(path):
+    """読み込んで返す。"""
+    import keras
+    return keras.models.load_model(str(path), compile=False)
+
+
+def create_generator(input_shape):
     """ImageDataGeneratorを作って返す。"""
-    gen = tk.image.ImageDataGenerator(
-        input_shape[:2], label_encoder=tk.ml.to_categorical(num_classes),
-        rotate_degrees=180)
-    gen.add(0.5, tk.image.FlipLR())
-    gen.add(0.5, tk.image.RandomErasing())
-    gen.add(0.25, tk.image.RandomBlur())
-    gen.add(0.25, tk.image.RandomBlur(partial=True))
-    gen.add(0.25, tk.image.RandomUnsharpMask())
-    gen.add(0.25, tk.image.RandomUnsharpMask(partial=True))
-    gen.add(0.25, tk.image.RandomMedian())
-    gen.add(0.25, tk.image.GaussianNoise())
-    gen.add(0.25, tk.image.GaussianNoise(partial=True))
-    gen.add(0.5, tk.image.RandomSaturation())
-    gen.add(0.5, tk.image.RandomBrightness())
-    gen.add(0.5, tk.image.RandomContrast())
-    gen.add(0.5, tk.image.RandomHue())
+    gen = tk.image.ImageDataGenerator()
+    gen.add(tk.image.RandomPadding(probability=1))
+    gen.add(tk.image.RandomRotate(probability=0.5, degrees=180))
+    gen.add(tk.image.RandomCrop(probability=1))
+    gen.add(tk.image.Resize(input_shape[:2]))
+    gen.add(tk.image.RandomFlipLRTB(probability=0.5))
+    gen.add(tk.image.RandomAugmentors([
+        tk.image.RandomBlur(probability=0.25),
+        tk.image.RandomBlur(probability=0.25, partial=True),
+        tk.image.RandomUnsharpMask(probability=0.25),
+        tk.image.RandomUnsharpMask(probability=0.25, partial=True),
+        tk.image.RandomMedian(probability=0.25),
+        tk.image.GaussianNoise(probability=0.25),
+        tk.image.GaussianNoise(probability=0.25, partial=True),
+        tk.image.RandomSaturation(probability=0.5),
+        tk.image.RandomBrightness(probability=0.5),
+        tk.image.RandomContrast(probability=0.5),
+        tk.image.RandomHue(probability=0.5),
+    ]))
+    gen.add(tk.image.RandomErasing(probability=0.5))
+    gen.add(tk.image.ProcessInput(tk.image.preprocess_input_abs1))  # 転移学習しないのでkeras.applications.densenet.preprocess_inputである必要は無い
+    # gen.add(tk.image.ProcessOutput(tk.ml.to_categorical(num_classes), batch_axis=True))
     return gen

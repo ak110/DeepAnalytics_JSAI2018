@@ -5,7 +5,6 @@ import pathlib
 import better_exceptions
 import horovod.keras as hvd
 import numpy as np
-import sklearn.model_selection
 
 import data
 import pytoolkit as tk
@@ -38,15 +37,12 @@ def _run():
     args = parser.parse_args()
     validate = not args.no_validate
 
-    (X_train, y_train), _ = data.load_data()
-    if validate:
-        X_train, X_val, y_train, y_val = sklearn.model_selection.train_test_split(
-            X_train, y_train, test_size=0.1, random_state=123)
-    else:
-        X_val, y_val = None, None
+    (X_train, y_train), (X_val, y_val), _ = data.load_data(split=validate)
     num_classes = len(np.unique(y_train))
+    y_train = tk.ml.to_categorical(num_classes)(y_train)
+    y_val = tk.ml.to_categorical(num_classes)(y_val) if y_val is not None else None
 
-    model, input_shape = models.create_network(num_classes)
+    model = models.create_network(num_classes)
 
     # 学習率：
     # ・lr 0.5、batch size 256くらいが多いのでその辺を基準に
@@ -72,7 +68,7 @@ def _run():
     if hvd.rank() == 0:
         callbacks.append(tk.dl.tsv_log_callback(MODELS_DIR / 'history.tsv'))
 
-    gen = models.create_generator(input_shape, num_classes)
+    gen = models.create_generator((256, 256, 3))
     model.fit_generator(
         gen.flow(X_train, y_train, batch_size=args.batch_size, data_augmentation=True, shuffle=True),
         steps_per_epoch=gen.steps_per_epoch(len(X_train), args.batch_size) // hvd.size(),
