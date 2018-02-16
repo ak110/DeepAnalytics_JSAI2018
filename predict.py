@@ -15,7 +15,6 @@ import pytoolkit as tk
 _BATCH_SIZE = 32
 _MODELS_DIR = pathlib.Path('models')
 _RESULT_FORMAT = 'pred_{}/tta{}.pkl'
-_TTA0_WEIGHT = 1
 
 _subprocess_context = {}
 
@@ -60,7 +59,7 @@ def _run():
     # 集計
     pred_target_list = [joblib.load(_MODELS_DIR / _RESULT_FORMAT.format(args.target, tta_index))
                         for tta_index in range(args.tta_size)]
-    pred_target_proba = np.average(pred_target_list, axis=0, weights=[_TTA0_WEIGHT] + [1] * (args.tta_size - 1))
+    pred_target_proba = np.mean(pred_target_list, axis=0)
     pred_target = pred_target_proba.argmax(axis=-1)
 
     # 保存
@@ -103,10 +102,9 @@ def _subprocess(target, tta_index):
         X_target = _subprocess_context['X_target']
         model = _subprocess_context['model']
         gen = _subprocess_context['gen']
-        da = tta_index != 0
 
         proba_target = model.predict_generator(
-            gen.flow(X_target, batch_size=_BATCH_SIZE, data_augmentation=da, shuffle=False, random_state=seed),
+            gen.flow(X_target, batch_size=_BATCH_SIZE, data_augmentation=True, shuffle=False, random_state=seed),
             steps=gen.steps_per_epoch(len(X_target), _BATCH_SIZE),
             verbose=0)
 
