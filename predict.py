@@ -35,7 +35,7 @@ def _run():
     logger = tk.log.get(__name__)
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpus', help='GPU数。', type=int, default=tk.get_gpu_count())
-    parser.add_argument('--tta-size', help='TTAで何回predictするか。', type=int, default=64)
+    parser.add_argument('--tta-size', help='TTAで何回predictするか。', type=int, default=256)
     parser.add_argument('--target', help='対象のデータ', choices=('val', 'test'), default='test')
     parser.add_argument('--no-cache', help='キャッシュがあれば事前に消す。', action='store_true', default=False)
     args = parser.parse_args()
