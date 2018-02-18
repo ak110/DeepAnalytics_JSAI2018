@@ -27,6 +27,9 @@ pred:
 val:
 	python predict.py --target=val --no-cache
 
+val16:
+	python predict.py --target=val --no-cache --tta-size=16
+
 pip:
 	pip-compile requirements.in --output-file docker/requirements.txt
 

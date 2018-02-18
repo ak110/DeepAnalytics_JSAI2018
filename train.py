@@ -31,7 +31,7 @@ def _run():
     import models
     logger = tk.log.get(__name__)
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', help='epoch数。', default=300, type=int)
+    parser.add_argument('--epochs', help='epoch数。', default=1800, type=int)
     parser.add_argument('--batch-size', help='バッチサイズ。', default=16, type=int)
     parser.add_argument('--warm', help='models/model.h5を読み込む', action='store_true', default=False)
     parser.add_argument('--no-validate', help='バリデーションしない。', action='store_true', default=False)
