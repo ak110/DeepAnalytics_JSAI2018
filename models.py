@@ -3,11 +3,13 @@
 import pytoolkit as tk
 
 
+
 @tk.log.trace()
 def create_network(num_classes: int):
     """ネットワークを作って返す。"""
     import keras
-    base_model = keras.applications.DenseNet201(include_top=False, weights=None, input_shape=(None, None, 3))
+    # base_model = keras.applications.DenseNet201(include_top=False, weights=None, input_shape=(None, None, 3))
+    base_model = keras.applications.Xception(include_top=False, weights=None, input_shape=(None, None, 3))
     x = base_model.outputs[0]
     x = keras.layers.Dropout(0.5)(x)
     x = keras.layers.GlobalAveragePooling2D()(x)
@@ -25,6 +27,7 @@ def load(path):
 def create_generator(input_shape):
     """ImageDataGeneratorを作って返す。"""
     gen = tk.image.ImageDataGenerator()
+    gen.add(tk.image.Resize(input_shape[:2]))
     gen.add(tk.image.RandomPadding(probability=1))
     gen.add(tk.image.RandomRotate(probability=0.5, degrees=180))
     gen.add(tk.image.RandomCrop(probability=1))

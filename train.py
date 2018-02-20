@@ -12,7 +12,6 @@ import pytoolkit as tk
 
 MODELS_DIR = pathlib.Path('models')
 
-
 def _main():
     hvd.init()
     better_exceptions.MAX_LENGTH = 128
@@ -31,7 +30,7 @@ def _run():
     import models
     logger = tk.log.get(__name__)
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', help='epoch数。', default=1800, type=int)
+    parser.add_argument('--epochs', help='epoch数。', default=300, type=int)
     parser.add_argument('--batch-size', help='バッチサイズ。', default=16, type=int)
     parser.add_argument('--warm', help='models/model.h5を読み込む', action='store_true', default=False)
     parser.add_argument('--no-validate', help='バリデーションしない。', action='store_true', default=False)
@@ -44,10 +43,9 @@ def _run():
     y_train = tk.ml.to_categorical(num_classes)(y_train)
     y_val = tk.ml.to_categorical(num_classes)(y_val) if y_val is not None else None
     if args.pseudo_labeling:
-        assert not validate
         X_train = np.concatenate((X_train, X_test))
         y_train = np.concatenate((y_train, joblib.load(MODELS_DIR / 'pseudo_label.pkl')))
-        logger.info('Pseudo-Labeling: len(X_train) = {}'.format(len(X_train)))
+    logger.info('len(X_train) = {}'.format(len(X_train)))
 
     model = models.create_network(num_classes)
 
@@ -75,7 +73,7 @@ def _run():
     if hvd.rank() == 0:
         callbacks.append(tk.dl.tsv_log_callback(MODELS_DIR / 'history.tsv'))
 
-    gen = models.create_generator((256, 256, 3))
+    gen = models.create_generator((299, 299, 3))
     model.fit_generator(
         gen.flow(X_train, y_train, batch_size=args.batch_size, data_augmentation=True, shuffle=True),
         steps_per_epoch=gen.steps_per_epoch(len(X_train), args.batch_size) // hvd.size(),

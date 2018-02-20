@@ -2,7 +2,7 @@
 
 GPUS?=$(shell python -c 'import pytoolkit as tk ; print(tk.get_gpu_count())')
 # SRC?=$(shell dirname `pwd`)
-BACKUP_DIR=___history/20180216_pseudo_labeling
+BACKUP_DIR=___history/20180219_xception
 
 help:
 	@cat Makefile
@@ -14,7 +14,20 @@ r1:
 	python predict.py --no-cache
 	cp -rv models $(BACKUP_DIR)
 
+rr:
+	@echo BACKUP_DIR: $(BACKUP_DIR)
+	mpirun -np $(GPUS) -H localhost:$(GPUS) python train.py --pseudo-labeling
+	python predict.py --no-cache
+	cp -rv models $(BACKUP_DIR)
+
 r2:
+	@echo BACKUP_DIR: $(BACKUP_DIR)
+	test -e models/model.h5
+	mpirun -np $(GPUS) -H localhost:$(GPUS) python train.py --warm --pseudo-labeling
+	python predict.py --no-cache
+	cp -rv models $(BACKUP_DIR)
+
+r3:
 	@echo BACKUP_DIR: $(BACKUP_DIR)
 	test -e models/model.h5
 	mpirun -np $(GPUS) -H localhost:$(GPUS) python train.py --warm --no-validate --pseudo-labeling
@@ -25,10 +38,7 @@ pred:
 	python predict.py --no-cache
 
 val:
-	python predict.py --target=val --no-cache
-
-val16:
-	python predict.py --target=val --no-cache --tta-size=16
+	python predict.py --target=val --no-cache --tta-size=64
 
 pip:
 	pip-compile requirements.in --output-file docker/requirements.txt
