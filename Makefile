@@ -10,27 +10,27 @@ help:
 r1:
 	@echo BACKUP_DIR: $(BACKUP_DIR)
 	test ! -e models/model.h5
-	mpirun -np $(GPUS) -H localhost:$(GPUS) python train.py
+	mpirun -np $(GPUS) python train.py
 	python predict.py --no-cache
 	cp -rv models $(BACKUP_DIR)
 
 rr:
 	@echo BACKUP_DIR: $(BACKUP_DIR)
-	mpirun -np $(GPUS) -H localhost:$(GPUS) python train.py --pseudo-labeling
+	mpirun -np $(GPUS) python train.py --pseudo-labeling
 	python predict.py --no-cache
 	cp -rv models $(BACKUP_DIR)
 
 r2:
 	@echo BACKUP_DIR: $(BACKUP_DIR)
 	test -e models/model.h5
-	mpirun -np $(GPUS) -H localhost:$(GPUS) python train.py --warm --pseudo-labeling
+	mpirun -np $(GPUS) python train.py --warm --pseudo-labeling
 	python predict.py --no-cache
 	cp -rv models $(BACKUP_DIR)
 
 r3:
 	@echo BACKUP_DIR: $(BACKUP_DIR)
 	test -e models/model.h5
-	mpirun -np $(GPUS) -H localhost:$(GPUS) python train.py --warm --no-validate --pseudo-labeling
+	mpirun -np $(GPUS) python train.py --warm --no-validate --pseudo-labeling
 	python predict.py --no-cache
 	cp -rv models $(BACKUP_DIR)
 
