@@ -68,7 +68,7 @@ def _run():
         data.save_data(_MODELS_DIR / 'submit.tsv', pred_target)
     else:
         _, (_, y_val), _ = data.load_data(split=True)
-        print('val_acc: {}'.format(sklearn.metrics.accuracy_score(y_val, pred_target)))
+        logger.info('val_acc: {}'.format(sklearn.metrics.accuracy_score(y_val, pred_target)))
 
 
 def _subprocess_init(gpu_queue, target):

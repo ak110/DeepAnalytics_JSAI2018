@@ -13,12 +13,14 @@ r1:
 	mpirun -np $(GPUS) python train.py
 	python predict.py --no-cache
 	cp -rv models $(BACKUP_DIR)
+	$(MAKE) val
 
 r1r:
 	@echo BACKUP_DIR: $(BACKUP_DIR)
 	mpirun -np $(GPUS) python train.py --pseudo-labeling
 	python predict.py --no-cache
 	cp -rv models $(BACKUP_DIR)
+	$(MAKE) val
 
 r2:
 	@echo BACKUP_DIR: $(BACKUP_DIR)
@@ -26,6 +28,7 @@ r2:
 	mpirun -np $(GPUS) python train.py --warm --pseudo-labeling
 	python predict.py --no-cache
 	cp -rv models $(BACKUP_DIR)
+	$(MAKE) val
 
 r3:
 	@echo BACKUP_DIR: $(BACKUP_DIR)
