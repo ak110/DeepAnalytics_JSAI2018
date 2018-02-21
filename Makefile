@@ -2,7 +2,7 @@
 
 GPUS?=$(shell python -c 'import pytoolkit as tk ; print(tk.get_gpu_count())')
 # SRC?=$(shell dirname `pwd`)
-BACKUP_DIR=___history/20180219_xception
+BACKUP_DIR=___history/$(shell cat _current_name)
 
 help:
 	@cat Makefile
@@ -14,7 +14,7 @@ r1:
 	python predict.py --no-cache
 	cp -rv models $(BACKUP_DIR)
 
-rr:
+r1r:
 	@echo BACKUP_DIR: $(BACKUP_DIR)
 	mpirun -np $(GPUS) python train.py --pseudo-labeling
 	python predict.py --no-cache
