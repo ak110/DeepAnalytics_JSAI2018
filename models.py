@@ -3,7 +3,6 @@
 import pytoolkit as tk
 
 
-
 @tk.log.trace()
 def create_network(num_classes: int):
     """ネットワークを作って返す。"""
@@ -24,14 +23,14 @@ def load(path):
     return keras.models.load_model(str(path), compile=False)
 
 
-def create_generator(input_shape):
+def create_generator(img_size):
     """ImageDataGeneratorを作って返す。"""
     gen = tk.image.ImageDataGenerator()
-    gen.add(tk.image.Resize(input_shape[:2]))
+    gen.add(tk.image.Resize(img_size))
     gen.add(tk.image.RandomPadding(probability=1))
     gen.add(tk.image.RandomRotate(probability=0.5, degrees=180))
     gen.add(tk.image.RandomCrop(probability=1))
-    gen.add(tk.image.Resize(input_shape[:2]))
+    gen.add(tk.image.Resize(img_size))
     gen.add(tk.image.RandomFlipLRTB(probability=0.5))
     gen.add(tk.image.RandomAugmentors([
         tk.image.RandomBlur(probability=0.5),

@@ -12,9 +12,20 @@ import sklearn.metrics
 import data
 import pytoolkit as tk
 
-_BATCH_SIZE = 32
+_BATCH_SIZE = 48
 _MODELS_DIR = pathlib.Path('models')
 _RESULT_FORMAT = 'pred_{}/tta{}.pkl'
+_BASE_SIZE = 299
+_SIZE_PATTERNS = [
+    (int(_BASE_SIZE * 2.00), int(_BASE_SIZE * 2.00)),
+    (int(_BASE_SIZE * 1.75), int(_BASE_SIZE * 1.75)),
+    (int(_BASE_SIZE * 1.50), int(_BASE_SIZE * 1.50)),
+    (int(_BASE_SIZE * 1.25), int(_BASE_SIZE * 1.25)),
+    (int(_BASE_SIZE * 1.00), int(_BASE_SIZE * 1.25)),
+    (int(_BASE_SIZE * 1.25), int(_BASE_SIZE * 1.00)),
+    (int(_BASE_SIZE * 1.00), int(_BASE_SIZE * 1.00)),
+    (int(_BASE_SIZE * 0.75), int(_BASE_SIZE * 0.75)),
+]
 
 _subprocess_context = {}
 
@@ -54,7 +65,7 @@ def _run():
         for i in range(args.gpus):
             gpu_queue.put(i)
         with multiprocessing.pool.Pool(args.gpus, _subprocess_init, (gpu_queue, args.target), context=ctx) as pool:  # TODO: プロセスごとのGPUの固定
-            pool.starmap(_subprocess, [(args.target, tta_index) for tta_index in range(args.tta_size)])
+            pool.starmap(_subprocess, [(args.target, tta_index, args.tta_size) for tta_index in range(args.tta_size)])
 
     # 集計
     pred_target_list = [joblib.load(_MODELS_DIR / _RESULT_FORMAT.format(args.target, tta_index))
@@ -75,6 +86,7 @@ def _subprocess_init(gpu_queue, target):
     """子プロセスの初期化。"""
     gpu_id = gpu_queue.get()
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+    import models
 
     assert target in ('val', 'test')
     if target == 'val':
@@ -83,13 +95,13 @@ def _subprocess_init(gpu_queue, target):
         _, _, X_target = data.load_data()
     _subprocess_context['X_target'] = X_target
 
-    import models
     _subprocess_context['model'] = models.load(_MODELS_DIR / 'model.h5')
-    _subprocess_context['gen'] = models.create_generator((256, 256, 3))
 
 
-def _subprocess(target, tta_index):
+def _subprocess(target, tta_index, tta_size):
     """子プロセスの処理。"""
+    import models
+
     result_path = _MODELS_DIR / _RESULT_FORMAT.format(target, tta_index)
     if result_path.is_file():
         print('スキップ: {}'.format(result_path))
@@ -99,13 +111,16 @@ def _subprocess(target, tta_index):
         seed = 1234 + tta_index
         np.random.seed(seed)
 
+        img_size = _SIZE_PATTERNS[len(_SIZE_PATTERNS) * tta_index // tta_size]
+        batch_size = int(_BATCH_SIZE * (_BASE_SIZE ** 2) / (img_size[0] * img_size[1]))
+        gen = models.create_generator(img_size)
+
         X_target = _subprocess_context['X_target']
         model = _subprocess_context['model']
-        gen = _subprocess_context['gen']
 
         proba_target = model.predict_generator(
-            gen.flow(X_target, batch_size=_BATCH_SIZE, data_augmentation=True, shuffle=False, random_state=seed),
-            steps=gen.steps_per_epoch(len(X_target), _BATCH_SIZE),
+            gen.flow(X_target, batch_size=batch_size, data_augmentation=True, shuffle=False, random_state=seed),
+            steps=gen.steps_per_epoch(len(X_target), batch_size),
             verbose=0)
 
         joblib.dump(proba_target, result_path)
