@@ -1,3 +1,6 @@
+__pycache__/
+.vscode/
+
 data/train/*.jpg
 data/train/*.jpeg
 data/test/*.jpg
