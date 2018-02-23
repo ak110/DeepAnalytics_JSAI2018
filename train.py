@@ -74,7 +74,7 @@ def _run():
     if hvd.rank() == 0:
         callbacks.append(tk.dl.tsv_log_callback(MODELS_DIR / 'history.tsv'))
 
-    gen = models.create_generator((299, 299))
+    gen = models.create_generator((299, 299), mixup=True)
     model.fit_generator(
         gen.flow(X_train, y_train, batch_size=args.batch_size, data_augmentation=True, shuffle=True),
         steps_per_epoch=gen.steps_per_epoch(len(X_train), args.batch_size) // hvd.size(),

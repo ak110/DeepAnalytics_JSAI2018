@@ -113,7 +113,7 @@ def _subprocess(target, tta_index, tta_size):
 
         img_size = _SIZE_PATTERNS[len(_SIZE_PATTERNS) * tta_index // tta_size]
         batch_size = int(_BATCH_SIZE * (_BASE_SIZE ** 2) / (img_size[0] * img_size[1]))
-        gen = models.create_generator(img_size)
+        gen = models.create_generator(img_size, mixup=False)
 
         X_target = _subprocess_context['X_target']
         model = _subprocess_context['model']

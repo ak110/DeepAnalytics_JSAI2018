@@ -23,10 +23,13 @@ def load(path):
     return keras.models.load_model(str(path), compile=False)
 
 
-def create_generator(img_size):
+def create_generator(img_size, mixup):
     """ImageDataGeneratorを作って返す。"""
     gen = tk.image.ImageDataGenerator()
+    # gen.add(tk.image.ProcessOutput(tk.ml.to_categorical(num_classes), batch_axis=True))
     gen.add(tk.image.Resize(img_size))
+    if mixup:
+        gen.add(tk.image.Mixup(probability=1))
     gen.add(tk.image.RandomPadding(probability=1))
     gen.add(tk.image.RandomRotate(probability=0.5, degrees=180))
     gen.add(tk.image.RandomCrop(probability=1))
@@ -43,5 +46,4 @@ def create_generator(img_size):
     ]))
     gen.add(tk.image.RandomErasing(probability=0.5))
     gen.add(tk.image.ProcessInput(tk.image.preprocess_input_abs1))  # 転移学習しないのでkeras.applications.densenet.preprocess_inputである必要は無い
-    # gen.add(tk.image.ProcessOutput(tk.ml.to_categorical(num_classes), batch_axis=True))
     return gen
