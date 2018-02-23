@@ -64,8 +64,9 @@ def _run():
         gpu_queue = m.Queue()  # GPUのリスト
         for i in range(args.gpus):
             gpu_queue.put(i)
-        with multiprocessing.pool.Pool(args.gpus, _subprocess_init, (gpu_queue, args.target), context=ctx) as pool:  # TODO: プロセスごとのGPUの固定
-            pool.starmap(_subprocess, [(args.target, tta_index, args.tta_size) for tta_index in range(args.tta_size)])
+        with multiprocessing.pool.Pool(args.gpus, _subprocess_init, (gpu_queue, args.target), context=ctx) as pool:
+            args = [(args.target, tta_index, args.tta_size) for tta_index in range(args.tta_size)]
+            pool.starmap(_subprocess, args, chunksize=1)
 
     # 集計
     pred_target_list = [joblib.load(_MODELS_DIR / _RESULT_FORMAT.format(args.target, tta_index))
