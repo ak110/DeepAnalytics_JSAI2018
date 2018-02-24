@@ -9,6 +9,7 @@ import pytoolkit as tk
 
 TRAIN_FILE = pathlib.Path('data/train_master.tsv')
 SAMPLE_SUBMIT_FILE = pathlib.Path('data/sample_submit.tsv')
+CLASS_MASTER_FILE = pathlib.Path('data/master.tsv')
 
 TRAIN_IMAGE_DIR = pathlib.Path('data/train')
 TEST_IMAGE_DIR = pathlib.Path('data/test')
@@ -38,3 +39,9 @@ def save_data(path, pred_test):
     df_submit = pd.read_csv(SAMPLE_SUBMIT_FILE, sep='\t', header=None)
     df_submit[1] = pred_test.astype(int)
     df_submit.to_csv(path, sep='\t', index=False, header=False)
+
+
+def get_class_names():
+    """クラス名を返す。"""
+    df_master = pd.read_csv(CLASS_MASTER_FILE, sep='\t', header=None)
+    return df_master[0].values

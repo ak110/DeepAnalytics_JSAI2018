@@ -76,13 +76,21 @@ def _run():
     pred_target_proba = np.mean(pred_target_list, axis=0)
     pred_target = pred_target_proba.argmax(axis=-1)
 
-    # 保存
     if args.target == 'test':
+        # 保存
         joblib.dump(pred_target_proba, _MODELS_DIR / 'pseudo_label.pkl')
         data.save_data(_MODELS_DIR / 'submit.tsv', pred_target)
     else:
-        _, (_, y_val), _ = data.load_data(split=True)
+        _, (X_val, y_val), _ = data.load_data(split=True)
+        # 正解率
         logger.info('val_acc: {}'.format(sklearn.metrics.accuracy_score(y_val, pred_target)))
+        # classification_report
+        class_names = data.get_class_names()
+        logger.info(sklearn.metrics.classification_report(y_val, pred_target, target_names=class_names))
+        # 個別の結果 (今回は間違ってるのが少ないので全部出しちゃう)
+        for path, pred, label in sorted(zip(X_val, pred_target, y_val)):
+            if pred != label:
+                logger.info('{}: pred={} label={}'.format(path.name, class_names[pred], class_names[label]))
 
 
 def _subprocess_init(gpu_queue, target):
