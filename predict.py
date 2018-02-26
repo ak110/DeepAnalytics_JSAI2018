@@ -17,13 +17,17 @@ _MODELS_DIR = pathlib.Path('models')
 _RESULT_FORMAT = 'pred_{}/tta{}.pkl'
 _BASE_SIZE = 299
 _SIZE_PATTERNS = [
-    (int(_BASE_SIZE * 2.00), int(_BASE_SIZE * 2.00)),
-    (int(_BASE_SIZE * 2.00), int(_BASE_SIZE * 1.75)),
-    (int(_BASE_SIZE * 1.75), int(_BASE_SIZE * 2.00)),
-    (int(_BASE_SIZE * 1.75), int(_BASE_SIZE * 1.75)),
     (int(_BASE_SIZE * 1.50), int(_BASE_SIZE * 1.50)),
     (int(_BASE_SIZE * 1.25), int(_BASE_SIZE * 1.25)),
+
+    (int(_BASE_SIZE * 1.00), int(_BASE_SIZE * 1.25)),
+    (int(_BASE_SIZE * 1.25), int(_BASE_SIZE * 1.00)),
+
     (int(_BASE_SIZE * 1.00), int(_BASE_SIZE * 1.00)),
+
+    (int(_BASE_SIZE * 0.75), int(_BASE_SIZE * 1.00)),
+    (int(_BASE_SIZE * 1.00), int(_BASE_SIZE * 0.75)),
+
     (int(_BASE_SIZE * 0.75), int(_BASE_SIZE * 0.75)),
 ]
 
