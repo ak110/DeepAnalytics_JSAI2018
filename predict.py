@@ -48,10 +48,12 @@ def _run():
     parser.add_argument('--tta-size', help='TTAで何回predictするか。', type=int, default=256)
     parser.add_argument('--target', help='対象のデータ', choices=('val', 'test'), default='test')
     parser.add_argument('--no-cache', help='キャッシュがあれば事前に消す。', action='store_true', default=False)
+    parser.add_argument('--no-predict', help='予測を実行しない。', action='store_true', default=False)
     args = parser.parse_args()
 
     # キャッシュの削除
     if args.no_cache:
+        assert not args.no_predict
         for tta_index in range(args.tta_size):
             cache_file = (_MODELS_DIR / _RESULT_FORMAT.format(args.target, tta_index))
             if cache_file.is_file():
@@ -59,14 +61,15 @@ def _run():
                 logger.info('削除: {}'.format(cache_file))
 
     # 子プロセスを作って予測
-    ctx = multiprocessing.get_context('spawn')
-    with multiprocessing.Manager() as m:
-        gpu_queue = m.Queue()  # GPUのリスト
-        for i in range(args.gpus):
-            gpu_queue.put(i)
-        with multiprocessing.pool.Pool(args.gpus, _subprocess_init, (gpu_queue, args.target), context=ctx) as pool:
-            args_list = [(args.target, tta_index, args.tta_size) for tta_index in range(args.tta_size)]
-            pool.starmap(_subprocess, args_list, chunksize=1)
+    if not args.no_predict:
+        ctx = multiprocessing.get_context('spawn')
+        with multiprocessing.Manager() as m:
+            gpu_queue = m.Queue()  # GPUのリスト
+            for i in range(args.gpus):
+                gpu_queue.put(i)
+            with multiprocessing.pool.Pool(args.gpus, _subprocess_init, (gpu_queue, args.target), context=ctx) as pool:
+                args_list = [(args.target, tta_index, args.tta_size) for tta_index in range(args.tta_size)]
+                pool.starmap(_subprocess, args_list, chunksize=1)
 
     # 集計
     pred_target_list = [joblib.load(_MODELS_DIR / _RESULT_FORMAT.format(args.target, tta_index))
@@ -89,6 +92,18 @@ def _run():
         for path, pred, label in sorted(zip(X_val, pred_target, y_val)):
             if pred != label:
                 logger.info('{}: pred={} label={}'.format(path.name, class_names[pred], class_names[label]))
+        # サイズパターンごとの結果
+        pattern_indices = []
+        for tta_index in range(args.tta_size):
+            pat_index = len(_SIZE_PATTERNS) * tta_index // args.tta_size
+            if len(pattern_indices) <= pat_index:
+                pattern_indices.append([])
+            pattern_indices[pat_index].append(tta_index)
+        for img_size, pat_indices in zip(_SIZE_PATTERNS, pattern_indices):
+            pat_data = [pred_target_list[pi] for pi in pat_indices]
+            mean_acc = np.mean([sklearn.metrics.accuracy_score(y_val, d.argmax(axis=-1)) for d in pat_data])  # 個別のaccuracyの平均
+            mix_acc = sklearn.metrics.accuracy_score(y_val, np.mean(pat_data, axis=0).argmax(axis=-1))  # 当該サイズだけでmeanした後の正解率
+            logger.info('size={}: mean acc={:.3f} mix acc={:.3f}'.format(img_size, mean_acc, mix_acc))
 
 
 def _subprocess_init(gpu_queue, target):
@@ -120,7 +135,8 @@ def _subprocess(target, tta_index, tta_size):
         seed = 1234 + tta_index
         np.random.seed(seed)
 
-        img_size = _SIZE_PATTERNS[len(_SIZE_PATTERNS) * tta_index // tta_size]
+        pattern_index = len(_SIZE_PATTERNS) * tta_index // tta_size
+        img_size = _SIZE_PATTERNS[pattern_index]
         batch_size = int(_BATCH_SIZE * ((_BASE_SIZE ** 2) / (img_size[0] * img_size[1])) ** 1.5)
         gen = models.create_generator(img_size, mixup=False)
 

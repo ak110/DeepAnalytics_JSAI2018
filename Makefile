@@ -37,7 +37,7 @@ pred:
 	python predict.py --no-cache
 
 val:
-	python predict.py --target=val --no-cache --tta-size=64
+	python predict.py --target=val --tta-size=64 --no-cache
 
 pip:
 	pip-compile requirements.in --output-file docker/requirements.txt
