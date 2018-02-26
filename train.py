@@ -67,12 +67,16 @@ def _run():
         logger.info('models/model.h5 loaded')
 
     callbacks = []
-    callbacks.append(tk.dl.learning_rate_callback(lr=lr, epochs=args.epochs))
+    if args.warm and args.epochs < 300:  # 短縮モード
+        callbacks.append(tk.dl.learning_rate_callback((0, 0.5)))
+    else:
+        callbacks.append(tk.dl.learning_rate_callback())
     callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
     callbacks.append(hvd.callbacks.MetricAverageCallback())
     callbacks.append(hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, verbose=1))
     if hvd.rank() == 0:
         callbacks.append(tk.dl.tsv_log_callback(MODELS_DIR / 'history.tsv'))
+    callbacks.append(tk.dl.freeze_bn_callback(0.95))
 
     gen = models.create_generator((299, 299), mixup=True)
     model.fit_generator(
