@@ -47,18 +47,8 @@ def _run():
     parser.add_argument('--gpus', help='GPU数。', type=int, default=tk.get_gpu_count())
     parser.add_argument('--tta-size', help='TTAで何回predictするか。', type=int, default=256)
     parser.add_argument('--target', help='対象のデータ', choices=('val', 'test'), default='test')
-    parser.add_argument('--no-cache', help='キャッシュがあれば事前に消す。', action='store_true', default=False)
     parser.add_argument('--no-predict', help='予測を実行しない。', action='store_true', default=False)
     args = parser.parse_args()
-
-    # キャッシュの削除
-    if args.no_cache:
-        assert not args.no_predict
-        for tta_index in range(args.tta_size):
-            cache_file = (_MODELS_DIR / _RESULT_FORMAT.format(args.target, tta_index))
-            if cache_file.is_file():
-                cache_file.unlink()
-                logger.info('削除: {}'.format(cache_file))
 
     # 子プロセスを作って予測
     if not args.no_predict:
