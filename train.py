@@ -6,21 +6,22 @@ import better_exceptions
 import horovod.keras as hvd
 import numpy as np
 import sklearn.externals.joblib as joblib
+import sklearn.metrics
 
 import data
 import pytoolkit as tk
 
-MODELS_DIR = pathlib.Path('models')
+_MODELS_DIR = pathlib.Path('models')
 
 
 def _main():
     hvd.init()
     better_exceptions.MAX_LENGTH = 128
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    _MODELS_DIR.mkdir(parents=True, exist_ok=True)
     logger = tk.log.get()
     logger.addHandler(tk.log.stream_handler())
     if hvd.rank() == 0:
-        logger.addHandler(tk.log.file_handler(MODELS_DIR / 'train.log'))
+        logger.addHandler(tk.log.file_handler(_MODELS_DIR / 'train.log'))
     with tk.dl.session(gpu_options={'visible_device_list': str(hvd.local_rank())}):
         _run()
 
@@ -33,20 +34,18 @@ def _run():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', help='epoch数。', default=300, type=int)
     parser.add_argument('--batch-size', help='バッチサイズ。', default=16, type=int)
-    parser.add_argument('--warm', help='models/model.h5を読み込む', action='store_true', default=False)
-    parser.add_argument('--no-validate', help='バリデーションしない。', action='store_true', default=False)
-    parser.add_argument('--pseudo-labeling', help='Pseudo-Labelingをする。', action='store_true', default=False)
+    parser.add_argument('--warm', help='models/model.fold{cv_index}.h5を読み込む', action='store_true', default=False)
+    parser.add_argument('--cv-index', help='CVの何番目か。', type=int)
+    parser.add_argument('--cv-size', help='CVの分割数。', default=5, type=int)
+    parser.add_argument('--split-seed', help='分割のシード値。', default=123, type=int)
     args = parser.parse_args()
-    validate = not args.no_validate
+    model_path = _MODELS_DIR / 'model.fold{}.h5'.format(args.cv_index)
 
-    (X_train, y_train), (X_val, y_val), X_test = data.load_data(split=validate)
+    (X_train, y_train), (X_val, y_val), _ = data.load_data(args.cv_index, args.cv_size, args.split_seed)
     num_classes = len(np.unique(y_train))
     y_train = tk.ml.to_categorical(num_classes)(y_train)
-    y_val = tk.ml.to_categorical(num_classes)(y_val) if y_val is not None else None
-    if args.pseudo_labeling:
-        X_train = np.concatenate((X_train, X_test))
-        y_train = np.concatenate((y_train, joblib.load(MODELS_DIR / 'pseudo_label.pkl')))
-    logger.info('len(X_train) = {}'.format(len(X_train)))
+    y_val = tk.ml.to_categorical(num_classes)(y_val)
+    logger.info('len(X_train) = {} len(X_val) = {}'.format(len(X_train), len(X_val)))
 
     model = models.create_network(num_classes)
 
@@ -58,13 +57,13 @@ def _run():
     opt = hvd.DistributedOptimizer(opt)
     model.compile(opt, 'categorical_crossentropy', ['acc'])
 
-    if hvd.rank() == 0:
+    if hvd.rank() == 0 and args.cv_index == 0:
         model.summary(print_fn=logger.info)
         logger.info('network depth: %d', tk.dl.count_network_depth(model))
 
     if args.warm:
-        model.load_weights('models/model.h5')
-        logger.info('models/model.h5 loaded')
+        model.load_weights(str(model_path))
+        logger.info('{} loaded'.format(model_path))
 
     callbacks = []
     if args.warm and args.epochs < 300:  # 短縮モード
@@ -75,7 +74,7 @@ def _run():
     callbacks.append(hvd.callbacks.MetricAverageCallback())
     callbacks.append(hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, verbose=1))
     if hvd.rank() == 0:
-        callbacks.append(tk.dl.tsv_log_callback(MODELS_DIR / 'history.tsv'))
+        callbacks.append(tk.dl.tsv_log_callback(_MODELS_DIR / 'history.tsv'))
     callbacks.append(tk.dl.freeze_bn_callback(0.95))
 
     gen = models.create_generator((299, 299), mixup=True)
@@ -84,12 +83,23 @@ def _run():
         steps_per_epoch=gen.steps_per_epoch(len(X_train), args.batch_size) // hvd.size(),
         epochs=args.epochs,
         verbose=1 if hvd.rank() == 0 else 0,
-        validation_data=gen.flow(X_val, y_val, batch_size=args.batch_size, shuffle=True) if validate else None,
-        validation_steps=gen.steps_per_epoch(len(X_val), args.batch_size) // hvd.size() if validate else None,  # * 3は省略
+        validation_data=gen.flow(X_val, y_val, batch_size=args.batch_size, shuffle=True),
+        validation_steps=gen.steps_per_epoch(len(X_val), args.batch_size) // hvd.size(),  # * 3は省略
         callbacks=callbacks)
 
     if hvd.rank() == 0:
-        model.save(str(MODELS_DIR / 'model.h5'))
+        model.save(str(model_path))
+
+        proba_val = model.predict_generator(
+            gen.flow(X_val, y_val, batch_size=args.batch_size),
+            gen.steps_per_epoch(len(X_val), args.batch_size),
+            verbose=1)
+        proba_val_dir = _MODELS_DIR / 'proba_val'
+        proba_val_dir.mkdir(parents=True, exist_ok=True)
+        joblib.dump(proba_val, proba_val_dir / 'fold{}.pkl'.format(args.cv_index))
+
+        pred_val = proba_val.argmax(axis=-1)
+        logger.info('val_acc: {:.1f}'.format(sklearn.metrics.accuracy_score(y_val, pred_val)))
 
 
 if __name__ == '__main__':
