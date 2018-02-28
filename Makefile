@@ -12,7 +12,7 @@ val:
 	python predict.py --target=val
 
 clean:
-	rm -rfv models/pred_* models/*.log
+	rm -rfv models/*.log models/proba_val.fold*.pkl models/pred_*
 
 pip:
 	pip-compile requirements.in --output-file docker/requirements.txt

@@ -21,7 +21,7 @@ def _main():
     logger = tk.log.get()
     logger.addHandler(tk.log.stream_handler())
     if hvd.rank() == 0:
-        logger.addHandler(tk.log.file_handler(_MODELS_DIR / 'train.log'))
+        logger.addHandler(tk.log.file_handler(_MODELS_DIR / 'train.log', append=True))
     with tk.dl.session(gpu_options={'visible_device_list': str(hvd.local_rank())}):
         _run()
 
@@ -39,6 +39,7 @@ def _run():
     parser.add_argument('--cv-size', help='CVの分割数。', default=5, type=int)
     parser.add_argument('--split-seed', help='分割のシード値。', default=123, type=int)
     args = parser.parse_args()
+    assert args.cv_index in range(args.cv_size)
     model_path = _MODELS_DIR / 'model.fold{}.h5'.format(args.cv_index)
 
     (X_train, y_train), (X_val, y_val), _ = data.load_data(args.cv_index, args.cv_size, args.split_seed)
@@ -94,9 +95,7 @@ def _run():
             gen.flow(X_val, y_val, batch_size=args.batch_size),
             gen.steps_per_epoch(len(X_val), args.batch_size),
             verbose=1)
-        proba_val_dir = _MODELS_DIR / 'proba_val'
-        proba_val_dir.mkdir(parents=True, exist_ok=True)
-        joblib.dump(proba_val, proba_val_dir / 'fold{}.pkl'.format(args.cv_index))
+        joblib.dump(proba_val, _MODELS_DIR / 'proba_val.fold{}.pkl'.format(args.cv_index))
 
         pred_val = proba_val.argmax(axis=-1)
         logger.info('val_acc: {:.1f}'.format(sklearn.metrics.accuracy_score(y_val, pred_val)))

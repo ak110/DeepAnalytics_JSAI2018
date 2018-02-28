@@ -76,24 +76,18 @@ def _predict_fold(args, cv_index):
         for i in range(args.gpus):
             gpu_queue.put(i)
 
-        with multiprocessing.pool.Pool(args.gpus, _subprocess_init, (gpu_queue, args, cv_index), context=ctx) as pool:
+        with multiprocessing.pool.Pool(args.gpus, _subprocess_init, (gpu_queue, cv_index), context=ctx) as pool:
             args_list = [(tta_index, args, cv_index) for tta_index in range(args.tta_size)]
             pool.starmap(_subprocess, args_list, chunksize=1)
 
 
-def _subprocess_init(gpu_queue, args, cv_index):
+def _subprocess_init(gpu_queue, cv_index):
     """子プロセスの初期化。"""
+    # GPUの固定
     gpu_id = gpu_queue.get()
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+    # モデルの読み込み
     import models
-
-    assert args.target in ('val', 'test')
-    if args.target == 'val':
-        _, (X_target, _), _ = data.load_data(cv_index, args.cv_size, args.split_seed)
-    else:
-        _, _, X_target = data.load_data(cv_index, args.cv_size, args.split_seed)
-    _subprocess_context['X_target'] = X_target
-
     _subprocess_context['model'] = models.load(_MODELS_DIR / 'model.fold{}.h5'.format(cv_index))
 
 
@@ -110,15 +104,18 @@ def _subprocess(tta_index, args, cv_index):
         seed = 1234 + tta_index
         np.random.seed(seed)
 
+        assert args.target in ('val', 'test')
+        if args.target == 'val':
+            _, (X_target, _), _ = data.load_data(cv_index, args.cv_size, args.split_seed)
+        else:
+            _, _, X_target = data.load_data(cv_index, args.cv_size, args.split_seed)
+
         pattern_index = len(_SIZE_PATTERNS) * tta_index // args.tta_size
         img_size = _SIZE_PATTERNS[pattern_index]
         batch_size = int(_BATCH_SIZE * ((_BASE_SIZE ** 2) / (img_size[0] * img_size[1])) ** 1.5)
+
         gen = models.create_generator(img_size, mixup=False)
-
-        X_target = _subprocess_context['X_target']
-        model = _subprocess_context['model']
-
-        proba_target = model.predict_generator(
+        proba_target = _subprocess_context['model'].predict_generator(
             gen.flow(X_target, batch_size=batch_size, data_augmentation=True, shuffle=False, random_state=seed),
             steps=gen.steps_per_epoch(len(X_target), batch_size),
             verbose=0)

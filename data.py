@@ -5,8 +5,6 @@ import numpy as np
 import pandas as pd
 import sklearn.model_selection
 
-import pytoolkit as tk
-
 TRAIN_FILE = pathlib.Path('data/train_master.tsv')
 SAMPLE_SUBMIT_FILE = pathlib.Path('data/sample_submit.tsv')
 CLASS_MASTER_FILE = pathlib.Path('data/master.tsv')
@@ -15,7 +13,6 @@ TRAIN_IMAGE_DIR = pathlib.Path('data/train')
 TEST_IMAGE_DIR = pathlib.Path('data/test')
 
 
-@tk.log.trace()
 def load_data(cv_index, cv_size, split_seed):
     """データの読み込み。"""
     # 読み込み
@@ -32,7 +29,6 @@ def load_data(cv_index, cv_size, split_seed):
     return (X_train[train_indices], y_train[train_indices]), (X_train[val_indnces], y_train[val_indnces]), X_test
 
 
-@tk.log.trace()
 def save_data(path, pred_test):
     """投稿用ファイルの作成。"""
     df_submit = pd.read_csv(SAMPLE_SUBMIT_FILE, sep='\t', header=None)
