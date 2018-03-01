@@ -98,7 +98,7 @@ def _run():
         joblib.dump(proba_val, _MODELS_DIR / 'proba_val.fold{}.pkl'.format(args.cv_index))
 
         pred_val = proba_val.argmax(axis=-1)
-        logger.info('val_acc: {:.1f}'.format(sklearn.metrics.accuracy_score(y_val, pred_val)))
+        logger.info('val_acc: {:.1f}'.format(sklearn.metrics.accuracy_score(y_val.argmax(axis=-1), pred_val)))
 
 
 if __name__ == '__main__':
