@@ -1,7 +1,7 @@
 """予測。"""
 import argparse
-import multiprocessing
 import concurrent.futures
+import multiprocessing
 import os
 import pathlib
 
@@ -53,8 +53,7 @@ def _main():
     logger = tk.log.get()
     logger.addHandler(tk.log.stream_handler())
     logger.addHandler(tk.log.file_handler(_MODELS_DIR / 'predict.log', append=True))
-    with tk.dl.session():
-        _run()
+    _run()
 
 
 @tk.log.trace()
