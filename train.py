@@ -65,6 +65,8 @@ def _run():
     if args.warm:
         model.load_weights(str(model_path))
         logger.info('{} loaded'.format(model_path))
+    else:
+        assert not model_path.exists()  # 誤操作対策
 
     callbacks = []
     if args.warm and args.epochs < 300:  # 短縮モード
