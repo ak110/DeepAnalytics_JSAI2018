@@ -1,7 +1,8 @@
 # 作業用Makefile (未整理気味)
-GPUS:=$(shell python -c 'import pytoolkit as tk ; print(tk.get_gpu_count())')
+GPUS:=$(shell nvidia-smi --list-gpus | wc -l)
 
 help:
+	@echo GPUS=$(GPUS)
 	@cat Makefile
 
 train:

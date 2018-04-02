@@ -7,4 +7,3 @@ data/test/*.jpg
 data/test/*.jpeg
 data/test/*.png
 models/
-cache/
